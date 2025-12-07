@@ -4,6 +4,7 @@ import { TaskStep, PracticeProblem, FocusMode } from "../types";
 const apiKey = process.env.API_KEY;
 // Using flash for responsiveness
 const MODEL_NAME = "gemini-2.5-flash"; 
+const IMAGE_MODEL_NAME = "gemini-2.5-flash-image";
 
 const ai = new GoogleGenAI({ apiKey: apiKey });
 
@@ -141,5 +142,41 @@ export const generatePracticeProblem = async (
   } catch (error) {
     console.error("Error generating problem:", error);
     throw new Error("Could not generate a problem right now.");
+  }
+};
+
+export const editImageWithGemini = async (
+  imageBase64: string,
+  imageMimeType: string,
+  prompt: string
+): Promise<string> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: IMAGE_MODEL_NAME,
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              data: imageBase64,
+              mimeType: imageMimeType,
+            },
+          },
+          {
+            text: prompt,
+          },
+        ],
+      },
+    });
+
+    // Extract image from response parts
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
+      }
+    }
+    throw new Error("No image generated in response");
+  } catch (error) {
+    console.error("Error editing image:", error);
+    throw error;
   }
 };

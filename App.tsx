@@ -4,6 +4,7 @@ import StatsCard from './components/StatsCard';
 import ProblemPanel from './components/ProblemPanel';
 import GoalBreakdown from './components/GoalBreakdown';
 import Celebration from './components/Celebration';
+import ImageEditor from './components/ImageEditor';
 import { breakDownGoal, getDistractionCoaching } from './services/geminiService';
 
 const STORE_KEY = 'neurofocus_stats';
@@ -360,10 +361,18 @@ function App() {
   // --- Shared Layout Header ---
   const Header = () => (
     <header className="absolute top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-center z-20 pointer-events-none">
-       <div className="pointer-events-auto">
+       <div className="pointer-events-auto flex items-center gap-4">
          {view !== AppView.HOME && (
            <button onClick={() => setView(AppView.HOME)} className="text-slate-500 dark:text-slate-400 font-bold hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
              NeuroFocus AI
+           </button>
+         )}
+         {view === AppView.HOME && (
+           <button 
+            onClick={() => setView(AppView.CREATIVE)}
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-xs font-bold border border-pink-200 dark:border-pink-800 hover:scale-105 transition-transform"
+           >
+             <span className="animate-sparkle">✨</span> Creative Studio
            </button>
          )}
        </div>
@@ -382,6 +391,17 @@ function App() {
   );
 
   // --- Views ---
+
+  if (view === AppView.CREATIVE) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+         <Header />
+         <div className="pt-12">
+            <ImageEditor onBack={() => setView(AppView.HOME)} />
+         </div>
+      </div>
+    );
+  }
 
   if (view === AppView.BREAKDOWN) {
     return (
@@ -452,7 +472,7 @@ function App() {
                       Resume
                     </button>
                   )}
-                  {/* CHANGED: Stop button logic updated to handleStopSession */}
+                  {/* Stop button updated to handleStopSession */}
                   <button onClick={handleStopSession} className="w-32 border-2 border-slate-200 dark:border-slate-700 hover:border-rose-200 dark:hover:border-rose-900 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 py-3 rounded-full font-bold transition-colors">
                     Finish Early
                   </button>
@@ -484,16 +504,28 @@ function App() {
             ) : (
               <div className="animate-slide-up">
                 <p className="text-slate-600 dark:text-slate-400 mb-6 text-lg">Great job! You maintained focus on your goal.</p>
-                <button 
-                  onClick={() => {
-                    localStorage.removeItem(SESSION_KEY);
-                    setSession(null);
-                    setView(AppView.HOME);
-                  }}
-                  className="bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-400 text-white px-8 py-3 rounded-full font-bold shadow-xl shadow-indigo-200 dark:shadow-indigo-900/30 transition-all hover:scale-105"
-                >
-                  Start New Session
-                </button>
+                <div className="flex gap-4 justify-center">
+                  <button 
+                    onClick={() => {
+                      localStorage.removeItem(SESSION_KEY);
+                      setSession(null);
+                      setView(AppView.HOME);
+                    }}
+                    className="bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-400 text-white px-8 py-3 rounded-full font-bold shadow-xl shadow-indigo-200 dark:shadow-indigo-900/30 transition-all hover:scale-105"
+                  >
+                    Start New Session
+                  </button>
+                  <button
+                     onClick={() => {
+                        localStorage.removeItem(SESSION_KEY);
+                        setSession(null);
+                        setView(AppView.CREATIVE);
+                     }}
+                     className="bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 px-6 py-3 rounded-full font-bold border border-pink-200 dark:border-pink-800 hover:bg-pink-200 dark:hover:bg-pink-900/50 transition-colors flex items-center gap-2"
+                  >
+                    <span>✨ Creative Break</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -566,135 +598,109 @@ function App() {
               </div>
             </div>
 
-            {/* Config Row */}
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Mode</label>
-                <div className="relative">
-                  <select 
-                    value={mode}
-                    onChange={(e) => setMode(e.target.value as FocusMode)}
-                    className="w-full appearance-none p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-300 outline-none focus:border-indigo-500 dark:focus:border-indigo-400 cursor-pointer font-medium"
+            {/* Mode Selection */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 ml-1">
+                Select Mode
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {Object.values(FocusMode).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setMode(m)}
+                    className={`p-3 rounded-xl text-sm font-bold transition-all border-2 ${
+                      mode === m
+                        ? 'bg-indigo-50 dark:bg-indigo-900/40 border-indigo-500 text-indigo-700 dark:text-indigo-300'
+                        : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
+                    }`}
                   >
-                    {Object.values(FocusMode).map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
-                  </div>
-                </div>
+                    {m}
+                  </button>
+                ))}
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Duration (Min)</label>
-                <div className="flex flex-wrap gap-2">
-                  {[5, 25, 45].map(min => (
-                    <button 
-                      key={min}
-                      onClick={() => { setDuration(min); setCustomDuration(''); }}
-                      className={`flex-1 py-3 px-2 rounded-xl text-sm font-bold transition-all border ${
-                        duration === min && customDuration === ''
-                        ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700' 
-                        : 'bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900'
-                      }`}
-                    >
-                      {min}
-                    </button>
-                  ))}
-                  <input
-                    type="number"
-                    value={customDuration}
-                    onChange={handleCustomDurationChange}
-                    placeholder="#"
-                    className={`w-14 text-center rounded-xl text-sm font-bold outline-none border transition-all
-                      ${customDuration 
-                        ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300' 
-                        : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                      }`}
-                  />
-                </div>
+            </div>
+
+            {/* Duration Selection */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 ml-1">
+                Duration (minutes)
+              </label>
+              <div className="flex flex-wrap gap-3">
+                {[15, 25, 45, 60].map((mins) => (
+                  <button
+                    key={mins}
+                    onClick={() => { setDuration(mins); setCustomDuration(''); }}
+                    className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all border-2 ${
+                      duration === mins && customDuration === ''
+                        ? 'bg-teal-50 dark:bg-teal-900/40 border-teal-500 text-teal-700 dark:text-teal-300'
+                        : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
+                    }`}
+                  >
+                    {mins}m
+                  </button>
+                ))}
+                 <div className="relative min-w-[100px] flex-1">
+                    <input 
+                      type="number" 
+                      placeholder="Custom"
+                      value={customDuration}
+                      onChange={handleCustomDurationChange}
+                      className={`w-full h-full p-3 rounded-xl font-bold text-center outline-none border-2 transition-all bg-white dark:bg-slate-950 ${
+                         customDuration !== '' 
+                         ? 'border-teal-500 text-teal-700 dark:text-teal-300 ring-2 ring-teal-500/20' 
+                         : 'border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:border-indigo-500'
+                      }`} 
+                    />
+                    {customDuration === '' && <span className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-400 font-bold text-sm">Custom</span>}
+                 </div>
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex flex-col gap-4 pt-2">
-              <button 
-                onClick={() => {
-                  if(!goal.trim()) {
-                    alert("Please enter a goal!");
-                    return;
-                  }
-                  startSession(goal, duration, mode);
-                }}
-                className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 dark:from-indigo-600 dark:to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 dark:hover:from-indigo-500 dark:hover:to-indigo-400 text-white text-lg font-bold py-4 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2"
+            <div className="pt-4 flex flex-col md:flex-row gap-4">
+              <button
+                onClick={() => startSession(goal || 'Focus Session', duration, mode)}
+                className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 dark:from-indigo-500 dark:to-indigo-600 text-white p-4 rounded-2xl font-black text-lg shadow-xl shadow-indigo-200 dark:shadow-indigo-900/20 transform transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                 <span>Start Focus Session</span>
-                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                Start Focus Session
               </button>
-              
-              <div className="flex flex-col gap-2">
-                <button 
-                  onClick={handleBreakdown}
-                  disabled={isBreakdownLoading}
-                  className="w-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-800 text-slate-600 dark:text-slate-300 font-bold py-3 rounded-2xl transition-all flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  {isBreakdownLoading ? (
-                    <span className="animate-pulse">Analyzing with Gemini...</span>
-                  ) : (
-                    <>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3V21"/><path d="M3 12h18"/></svg>
-                      <span>Break Big Goal Into Steps</span>
-                    </>
-                  )}
-                </button>
-
-                {generatedSteps.length > 0 && (
-                  <button
-                    onClick={() => setView(AppView.BREAKDOWN)}
-                    className="w-full text-xs font-bold text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 underline py-2"
-                  >
-                    Resume previous breakdown ({generatedSteps.length} steps saved)
-                  </button>
+              <button
+                onClick={handleBreakdown}
+                disabled={isBreakdownLoading}
+                className="md:w-auto px-8 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 p-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2"
+              >
+                {isBreakdownLoading ? (
+                   <div className="animate-spin h-5 w-5 border-2 border-slate-400 border-t-transparent rounded-full"></div>
+                ) : (
+                   <span>Break Down Goal</span>
                 )}
-              </div>
+              </button>
             </div>
+
           </div>
         </div>
 
-        {/* Footer/Settings */}
-        <div className="mt-8 text-center">
-          <button 
-            onClick={() => setShowSettings(true)}
-            className="text-xs font-semibold text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
-          >
-            Info & Disclaimer
-          </button>
+        {/* Footer */}
+        <div className="mt-12 text-center">
+           <button 
+             onClick={() => setShowSettings(!showSettings)}
+             className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-bold uppercase tracking-widest transition-colors"
+           >
+             About & Disclaimer
+           </button>
+           
+           {showSettings && (
+             <div className="mt-4 p-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 text-sm text-slate-500 dark:text-slate-400 max-w-lg mx-auto animate-fade-in shadow-lg">
+               <p className="mb-2"><strong>NeuroFocus AI</strong> helps you structure tasks and stay engaged. Built with Gemini 3 Pro.</p>
+               <p className="italic text-xs">Disclaimer: This app is for productivity and educational purposes only. It is not a medical device and does not provide medical advice or treatment.</p>
+               <div className="mt-4 flex gap-4 justify-center">
+                  <a href="#" className="text-indigo-500 hover:underline">Privacy</a>
+                  <a href="#" className="text-indigo-500 hover:underline">Terms</a>
+               </div>
+             </div>
+           )}
         </div>
       </div>
-
-      {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-8 shadow-2xl border border-slate-200 dark:border-slate-800">
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">About NeuroFocus AI</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
-              This app uses <strong>Google Gemini 3 Pro / 2.5 Flash</strong> to help structure your focus sessions. 
-              Created for the AI Studio Apps Accessibility / Education track.
-            </p>
-            <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800/50 rounded-xl p-4 mb-6">
-              <p className="text-xs text-amber-800 dark:text-amber-200 font-bold">
-                DISCLAIMER: This application is a productivity tool and does not provide medical advice, diagnosis, or treatment.
-              </p>
-            </div>
-            <button 
-              onClick={() => setShowSettings(false)}
-              className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold py-3 rounded-xl transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

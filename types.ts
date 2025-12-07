@@ -2,6 +2,7 @@ export enum AppView {
   HOME = 'HOME',
   SESSION = 'SESSION',
   BREAKDOWN = 'BREAKDOWN',
+  CREATIVE = 'CREATIVE',
 }
 
 export enum FocusMode {
