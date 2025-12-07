@@ -1,0 +1,7 @@
+{
+  "name": "NeuroFocus AI",
+  "description": "An ADHD-friendly focus companion that helps break down tasks, maintain attention, and generate practice problems using Gemini.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
