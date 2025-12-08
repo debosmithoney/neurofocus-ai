@@ -639,19 +639,22 @@ function App() {
                     {mins}m
                   </button>
                 ))}
-                 <div className="relative min-w-[100px] flex-1">
+                 <div className="relative min-w-[80px] flex-1">
                     <input 
                       type="number" 
-                      placeholder="Custom"
                       value={customDuration}
                       onChange={handleCustomDurationChange}
-                      className={`w-full h-full p-3 rounded-xl font-bold text-center outline-none border-2 transition-all bg-white dark:bg-slate-950 ${
+                      className={`w-full h-full px-3 py-3 rounded-xl font-bold text-center outline-none border-2 transition-all bg-white dark:bg-slate-950 ${
                          customDuration !== '' 
                          ? 'border-teal-500 text-teal-700 dark:text-teal-300 ring-2 ring-teal-500/20' 
                          : 'border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:border-indigo-500'
                       }`} 
                     />
-                    {customDuration === '' && <span className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-400 font-bold text-sm">Custom</span>}
+                    {customDuration === '' && (
+                      <span className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-400 font-bold text-sm">
+                        Custom
+                      </span>
+                    )}
                  </div>
               </div>
             </div>
