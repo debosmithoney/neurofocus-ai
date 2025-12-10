@@ -11,7 +11,7 @@ NeuroFocus AI addresses common executive function challenges:
 *   **Maintains Cognitive Engagement**: Unlike standard timers, the "Smart Context" practice panel generates relevant questions and problems related to the user's current task. This keeps the brain active and interested, preventing boredom-induced drifting.
 *   **Reduces Shame Spirals**: The "I got distracted" feature provides non-judgmental, compassionate coaching. Instead of feeling guilty for losing focus, users get a gentle, dopamine-friendly nudge to restart.
 *   **Visual Rewards**: Immediate feedback through celebrations and stats tracking helps build positive reinforcement loops.
-*   **Controlled Breaks**: The "Creative Studio" offers a safe space for a creative dopamine hit (image editing) without the risk of doom-scrolling on social media.
+*   **Controlled, Contextual Breaks**: The "Creative Studio" offers a safe space for a creative dopamine hit (image editing) without the risk of doom-scrolling. It intelligently links the creative output to your study topic, keeping your brain primed even during rest.
 
 ## How to Use (Step-by-Step)
 
@@ -33,14 +33,22 @@ NeuroFocus AI addresses common executive function challenges:
 
 ### 4. Finishing Up
 *   **Completion**: When the timer ends, celebrate with the confetti animation!
-*   **Stats**: Your focus minutes, session count, and streak are automatically saved to your daily stats on the Home screen.
-*   **Stopping Early**: If you need to stop, click "Finish Early". The app will credit you for the minutes you actually worked.
+*   **Stats**: Your focus minutes, session count, and streak are automatically saved  to your daily stats on the Home screen.
+*   **Stopping Early**: If you need to stop, click "Finish Early". The timer will pause, and a confirmation dialog will appear. You will be credited for the minutes you actually worked.
 
 ### 5. Creative Studio (Brain Break)
-1.  Click the **"Creative Studio"** button on the Home screen.
+*Note: This feature unlocks only after you have started or completed a session.*
+1.  After a session, click the **"✨ Creative Studio"** button on the Home screen header or the completion screen.
 2.  Upload an image.
 3.  Type a prompt (e.g., "Turn this into a pixel art style").
-4.  Let Gemini edit the image for a fun, creative break before your next session.
+4.  **Gemini Context Magic**: The AI will generate the image while **automatically incorporating themes from your previous session** (e.g., if you were studying biology, the style might look organic or cellular). This ensures your break doesn't break your flow.
+
+## Privacy
+Your data stays with you.
+We don’t store it.
+We don’t upload it.
+We don’t use it.
+It’s your app, your information, your privacy.
 
 ---
 

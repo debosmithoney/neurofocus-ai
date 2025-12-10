@@ -3,9 +3,10 @@ import { editImageWithGemini } from '../services/geminiService';
 
 interface ImageEditorProps {
   onBack: () => void;
+  contextGoal: string;
 }
 
-const ImageEditor: React.FC<ImageEditorProps> = ({ onBack }) => {
+const ImageEditor: React.FC<ImageEditorProps> = ({ onBack, contextGoal }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
@@ -38,8 +39,17 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ onBack }) => {
       const base64String = (reader.result as string).split(',')[1]; // Remove data url prefix
       const mimeType = selectedFile.type;
 
+      // Augment prompt to enforce session context
+      const augmentedPrompt = `You are a creative companion for a user who is focusing on: "${contextGoal}".
+      The user wants to edit an image with this specific instruction: "${prompt}".
+      
+      CRITICAL INSTRUCTION:
+      The generated image MUST incorporate elements, themes, or styles related to "${contextGoal}" while fulfilling the user's edit request.
+      If the user's prompt is generic, heavily bias the style towards "${contextGoal}".
+      `;
+
       try {
-        const resultUrl = await editImageWithGemini(base64String, mimeType, prompt);
+        const resultUrl = await editImageWithGemini(base64String, mimeType, augmentedPrompt);
         setGeneratedImage(resultUrl);
       } catch (error) {
         alert("Failed to edit image. Please try again.");
@@ -65,12 +75,13 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ onBack }) => {
       </div>
 
       <div className="text-center mb-10">
-        <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white mb-3 bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-rose-500">
+        <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white mb-2 bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-rose-500">
           Creative Studio
         </h2>
-        <p className="text-slate-600 dark:text-slate-400">
-          Take a break. Upload an image and transform it with AI.
-        </p>
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-800/50 rounded-full text-xs font-bold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800">
+           <span>Inspired by session:</span>
+           <span className="text-indigo-600 dark:text-indigo-400">"{contextGoal}"</span>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
@@ -111,11 +122,13 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ onBack }) => {
           {/* Prompt Input */}
           <div className="space-y-4">
              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Instructions</label>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                  Instructions (Context locked to session)
+                </label>
                 <textarea 
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="e.g. Add a retro VHS filter, remove the background, or turn this into a sketch."
+                  placeholder={`e.g. Turn this into a sketch... (AI will relate it to "${contextGoal}")`}
                   className="w-full p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500 dark:focus:border-pink-500 outline-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 text-sm h-24 resize-none"
                 />
              </div>

@@ -10,6 +10,7 @@ import { breakDownGoal, getDistractionCoaching } from './services/geminiService'
 const STORE_KEY = 'neurofocus_stats';
 const SESSION_KEY = 'neurofocus_active_session';
 const BREAKDOWN_KEY = 'neurofocus_breakdown';
+const LAST_GOAL_KEY = 'neurofocus_last_goal';
 
 function App() {
   // --- Theme State ---
@@ -39,6 +40,7 @@ function App() {
   const [stats, setStats] = useState<DailyStats>(DEFAULT_STATS);
   const [showSettings, setShowSettings] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showEndSessionConfirm, setShowEndSessionConfirm] = useState(false);
 
   // Focus Session Inputs
   const [goal, setGoal] = useState('');
@@ -58,6 +60,14 @@ function App() {
   // Breakdown State
   const [generatedSteps, setGeneratedSteps] = useState<TaskStep[]>([]);
   const [isBreakdownLoading, setIsBreakdownLoading] = useState(false);
+
+  // Last Session Context (for Creative Mode)
+  const [lastGoal, setLastGoal] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(LAST_GOAL_KEY) || '';
+    }
+    return '';
+  });
 
   // Timer Ref
   const timerRef = useRef<number | null>(null);
@@ -158,6 +168,11 @@ function App() {
     }
   }, [generatedSteps]);
 
+  // Save Last Goal
+  useEffect(() => {
+    localStorage.setItem(LAST_GOAL_KEY, lastGoal);
+  }, [lastGoal]);
+
   // --- 3. Timer Logic ---
   useEffect(() => {
     if (session?.status === 'running' && timeLeft > 0) {
@@ -196,6 +211,7 @@ function App() {
     setTimeLeft(sessionDuration * 60);
     setCoachingMessage(null);
     setShowCelebration(false);
+    setShowEndSessionConfirm(false);
     setView(AppView.SESSION);
   };
 
@@ -212,34 +228,42 @@ function App() {
     }
   };
 
-  const handleStopSession = () => {
+  const handleFinishEarlyClick = () => {
+    if (!session) return;
+    // Pause immediately so the timer stops while they decide
+    if (session.status === 'running') {
+      pauseSession();
+    }
+    setShowEndSessionConfirm(true);
+  };
+
+  const confirmFinishEarly = () => {
     if (!session) return;
     
     // Calculate elapsed time (partial credit)
     const elapsedMinutes = Math.floor((session.durationMinutes * 60 - timeLeft) / 60);
-    const message = elapsedMinutes > 0 
-      ? `Ending early? We'll log the ${elapsedMinutes} minutes you've completed so far.`
-      : "End session? No time will be logged as less than 1 minute has passed.";
+    
+    // Clear Timer
+    if (timerRef.current) clearInterval(timerRef.current);
 
-    if (window.confirm(message)) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      
-      // Save partial progress
-      if (elapsedMinutes > 0) {
-        setStats(prev => ({
-          ...prev,
-          totalFocusMinutes: prev.totalFocusMinutes + elapsedMinutes,
-          // We don't increment completed sessions, but we do log the minutes.
-        }));
-      }
-
-      // Clear persistence explicitly
-      localStorage.removeItem(SESSION_KEY);
-      
-      // Reset state
-      setSession(null);
-      setView(AppView.HOME);
+    // Save partial progress
+    if (elapsedMinutes > 0) {
+      setStats(prev => ({
+        ...prev,
+        totalFocusMinutes: prev.totalFocusMinutes + elapsedMinutes,
+        // We don't increment completed sessions, but we do log the minutes.
+      }));
+      // Update last goal so they can access creative mode for this partial session
+      setLastGoal(session.goal);
     }
+
+    // Clear persistence explicitly
+    localStorage.removeItem(SESSION_KEY);
+    
+    // Reset state
+    setSession(null);
+    setShowEndSessionConfirm(false);
+    setView(AppView.HOME);
   };
 
   const completeSession = () => {
@@ -259,6 +283,9 @@ function App() {
         lastSessionDate: today
       };
     });
+
+    // Save context for Creative Mode
+    setLastGoal(session.goal);
 
     setSession({ ...session, status: 'completed' });
     if (timerRef.current) clearInterval(timerRef.current);
@@ -367,7 +394,7 @@ function App() {
              NeuroFocus AI
            </button>
          )}
-         {view === AppView.HOME && (
+         {view === AppView.HOME && lastGoal && (
            <button 
             onClick={() => setView(AppView.CREATIVE)}
             className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 text-xs font-bold border border-pink-200 dark:border-pink-800 hover:scale-105 transition-transform"
@@ -397,7 +424,10 @@ function App() {
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
          <Header />
          <div className="pt-12">
-            <ImageEditor onBack={() => setView(AppView.HOME)} />
+            <ImageEditor 
+              onBack={() => setView(AppView.HOME)} 
+              contextGoal={lastGoal}
+            />
          </div>
       </div>
     );
@@ -428,6 +458,38 @@ function App() {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row transition-colors duration-300 overflow-hidden relative">
         {showCelebration && <Celebration />}
+        
+        {/* End Session Confirmation Modal */}
+        {showEndSessionConfirm && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4">
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl max-w-sm w-full border border-slate-200 dark:border-slate-800 transform scale-100 animate-slide-up">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">End Session Early?</h3>
+              <p className="text-slate-600 dark:text-slate-400 mb-6 text-sm leading-relaxed">
+                {Math.floor((session.durationMinutes * 60 - timeLeft) / 60) > 0 
+                  ? `You've focused for ${Math.floor((session.durationMinutes * 60 - timeLeft) / 60)} minutes. Good effort! This will be saved.`
+                  : "You've focused for less than a minute. No time will be logged."}
+              </p>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => {
+                    setShowEndSessionConfirm(false);
+                    resumeSession();
+                  }}
+                  className="flex-1 py-3 px-4 rounded-xl font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Resume
+                </button>
+                <button 
+                  onClick={confirmFinishEarly}
+                  className="flex-1 py-3 px-4 rounded-xl font-bold bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 hover:bg-rose-200 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 transition-colors"
+                >
+                  End Session
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <Header />
         
         {/* Left/Main Column: Timer */}
@@ -472,8 +534,7 @@ function App() {
                       Resume
                     </button>
                   )}
-                  {/* Stop button updated to handleStopSession */}
-                  <button onClick={handleStopSession} className="w-32 border-2 border-slate-200 dark:border-slate-700 hover:border-rose-200 dark:hover:border-rose-900 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 py-3 rounded-full font-bold transition-colors">
+                  <button onClick={handleFinishEarlyClick} className="w-32 border-2 border-slate-200 dark:border-slate-700 hover:border-rose-200 dark:hover:border-rose-900 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 py-3 rounded-full font-bold transition-colors">
                     Finish Early
                   </button>
                 </div>
@@ -541,167 +602,119 @@ function App() {
 
   // DEFAULT VIEW: HOME
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen p-4 md:p-8 flex flex-col items-center justify-center relative overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
       <Header />
-      
-      {/* Background Decor */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-200/30 dark:bg-indigo-900/20 rounded-full blur-[100px] pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-teal-200/30 dark:bg-teal-900/20 rounded-full blur-[100px] pointer-events-none"></div>
 
-      <div className="max-w-xl w-full relative z-0 mt-12 mb-8">
-        
-        {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white mb-3 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-teal-500 dark:from-indigo-400 dark:to-teal-300">
-            NeuroFocus AI
+      <div className="w-full max-w-xl z-10 relative">
+        <div className="text-center mb-10 animate-fade-in">
+          <h1 className="text-4xl md:text-6xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">
+            Neuro<span className="text-indigo-600 dark:text-indigo-400">Focus</span>
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">
-            Your ADHD-friendly companion for deep work.
-          </p>
+          <p className="text-slate-500 dark:text-slate-400 text-lg font-medium">Your dopamine-friendly focus companion.</p>
         </div>
 
         <StatsCard stats={stats} />
 
-        {/* Main Card */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl dark:shadow-2xl dark:shadow-black/50 border border-slate-100 dark:border-slate-800 p-6 md:p-8 animate-slide-up">
-          <div className="space-y-8">
-            
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 shadow-xl border border-slate-200 dark:border-slate-800 animate-slide-up" style={{animationDelay: '0.2s'}}>
+          <div className="space-y-6">
             {/* Goal Input */}
             <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 ml-1">
-                What are you working on?
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">
+                What do you want to achieve?
               </label>
               <div className="relative">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
-                  placeholder="e.g. Study React Hooks, Write essay intro..."
-                  className="w-full text-lg p-4 pr-12 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all outline-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 shadow-inner"
+                  placeholder="e.g. Study React Hooks, Write Blog Post..."
+                  className="w-full text-lg bg-slate-50 dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-4 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
                 />
                 <button 
                   onClick={handleVoiceInput}
-                  disabled={isListening}
-                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all ${
-                    isListening 
-                    ? 'bg-red-500 text-white animate-pulse' 
-                    : 'text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30'
-                  }`}
-                  title="Speak your goal"
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-colors ${isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-500'}`}
+                  title="Speak goal"
                 >
-                  {isListening ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-                  ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-                  )}
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
                 </button>
               </div>
             </div>
 
-            {/* Mode Selection */}
-            <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 ml-1">
-                Select Mode
-              </label>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                {Object.values(FocusMode).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setMode(m)}
-                    className={`p-3 rounded-xl text-sm font-bold transition-all border-2 ${
-                      mode === m
-                        ? 'bg-indigo-50 dark:bg-indigo-900/40 border-indigo-500 text-indigo-700 dark:text-indigo-300'
-                        : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
+            {/* Mode & Duration Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Focus Mode</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[FocusMode.STUDY, FocusMode.CODING, FocusMode.WRITING, FocusMode.READING].map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setMode(m)}
+                      className={`py-2 px-3 rounded-xl text-sm font-bold transition-all border
+                        ${mode === m 
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 dark:shadow-indigo-900/20' 
+                          : 'bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700'}`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Duration Selection */}
-            <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 ml-1">
-                Duration (minutes)
-              </label>
-              <div className="flex flex-wrap gap-3">
-                {[15, 25, 45, 60].map((mins) => (
-                  <button
-                    key={mins}
-                    onClick={() => { setDuration(mins); setCustomDuration(''); }}
-                    className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all border-2 ${
-                      duration === mins && customDuration === ''
-                        ? 'bg-teal-50 dark:bg-teal-900/40 border-teal-500 text-teal-700 dark:text-teal-300'
-                        : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
-                    }`}
-                  >
-                    {mins}m
-                  </button>
-                ))}
-                 <div className="relative min-w-[80px] flex-1">
-                    <input 
-                      type="number" 
-                      value={customDuration}
-                      onChange={handleCustomDurationChange}
-                      className={`w-full h-full px-3 py-3 rounded-xl font-bold text-center outline-none border-2 transition-all bg-white dark:bg-slate-950 ${
-                         customDuration !== '' 
-                         ? 'border-teal-500 text-teal-700 dark:text-teal-300 ring-2 ring-teal-500/20' 
-                         : 'border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:border-indigo-500'
-                      }`} 
-                    />
-                    {customDuration === '' && (
-                      <span className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-400 font-bold text-sm">
-                        Custom
-                      </span>
-                    )}
-                 </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Duration (Min)</label>
+                <div className="flex gap-2">
+                  {[15, 25, 45].map((min) => (
+                    <button
+                      key={min}
+                      onClick={() => { setDuration(min); setCustomDuration(''); }}
+                      className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all border
+                        ${duration === min && customDuration === ''
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 dark:shadow-indigo-900/20' 
+                          : 'bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700'}`}
+                    >
+                      {min}
+                    </button>
+                  ))}
+                  <input 
+                    type="number"
+                    value={customDuration}
+                    onChange={handleCustomDurationChange}
+                    placeholder="..."
+                    className={`w-14 text-center rounded-xl text-sm font-bold border outline-none
+                      ${customDuration !== '' 
+                         ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' 
+                         : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'}`}
+                  />
+                </div>
               </div>
             </div>
 
             {/* Actions */}
-            <div className="pt-4 flex flex-col md:flex-row gap-4">
+            <div className="pt-2 flex flex-col gap-3">
               <button
                 onClick={() => startSession(goal || 'Focus Session', duration, mode)}
-                className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 dark:from-indigo-500 dark:to-indigo-600 text-white p-4 rounded-2xl font-black text-lg shadow-xl shadow-indigo-200 dark:shadow-indigo-900/20 transform transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white text-lg font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
               >
-                Start Focus Session
+                <span>Start Focus Session</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
               </button>
+              
               <button
                 onClick={handleBreakdown}
                 disabled={isBreakdownLoading}
-                className="md:w-auto px-8 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 p-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2"
+                className="w-full bg-white dark:bg-slate-900 border-2 border-indigo-100 dark:border-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold py-3 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-colors flex items-center justify-center gap-2"
               >
                 {isBreakdownLoading ? (
-                   <div className="animate-spin h-5 w-5 border-2 border-slate-400 border-t-transparent rounded-full"></div>
+                  <span className="animate-pulse">Thinking...</span>
                 ) : (
-                   <span>Break Down Goal</span>
+                  <>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                    <span>Break Down Goal (ADHD Helper)</span>
+                  </>
                 )}
               </button>
             </div>
-
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-12 text-center">
-           <button 
-             onClick={() => setShowSettings(!showSettings)}
-             className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-bold uppercase tracking-widest transition-colors"
-           >
-             About & Disclaimer
-           </button>
-           
-           {showSettings && (
-             <div className="mt-4 p-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-slate-800 text-sm text-slate-500 dark:text-slate-400 max-w-lg mx-auto animate-fade-in shadow-lg">
-               <p className="mb-2"><strong>NeuroFocus AI</strong> helps you structure tasks and stay engaged. Built with Gemini 3 Pro.</p>
-               <p className="italic text-xs">Disclaimer: This app is for productivity and educational purposes only. It is not a medical device and does not provide medical advice or treatment.</p>
-               <div className="mt-4 flex gap-4 justify-center">
-                  <a href="#" className="text-indigo-500 hover:underline">Privacy</a>
-                  <a href="#" className="text-indigo-500 hover:underline">Terms</a>
-               </div>
-             </div>
-           )}
         </div>
       </div>
     </div>
